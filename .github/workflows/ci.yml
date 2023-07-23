@@ -22,6 +22,10 @@ jobs:
         with:
           node-version: 16.19.0
 
+      - name: Install AzureSignTool
+        if: matrix.os == 'windows-latest'
+        run: dotnet tool install --global AzureSignTool
+
       - name: Install Webpack
         run: npm install --save-dev webpack-cli --legacy-peer-deps
 
