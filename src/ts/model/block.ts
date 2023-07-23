@@ -27,6 +27,8 @@ const ContentModel = {
 	widget:		 BlockContentWidget,
 };
 
+#breaking test :D
+
 class Block implements I.Block {
 	
 	id = '';
