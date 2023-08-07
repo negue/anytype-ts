@@ -3,7 +3,7 @@ import $ from 'jquery';
 import { observer } from 'mobx-react';
 import { AutoSizer, CellMeasurer, InfiniteLoader, List, CellMeasurerCache } from 'react-virtualized';
 import { Filter, Icon, MenuItemVertical, Loader } from 'Component';
-import { I, C, analytics, keyboard, UtilData, Action, UtilCommon } from 'Lib';
+import { I, C, analytics, keyboard, UtilData, Action, UtilCommon, translate } from 'Lib';
 import { commonStore, detailStore, menuStore } from 'Store';
 import Constant from 'json/constant.json';
 
@@ -108,7 +108,7 @@ const MenuTypeSuggest = observer(class MenuTypeSuggest extends React.Component<I
 				{!noFilter ? (
 					<Filter 
 						ref={ref => this.refFilter = ref} 
-						placeholderFocus="Filter types..." 
+						placeholderFocus={translate('menuTypeSuggestFilterTypes')}
 						value={filter}
 						onChange={this.onFilterChange} 
 					/>
@@ -292,21 +292,21 @@ const MenuTypeSuggest = observer(class MenuTypeSuggest extends React.Component<I
 		const librarySources = library.map(it => it.sourceObject);
 
 		let sections: any[] = [
-			{ id: 'library', name: 'My types', children: library },
+			{ id: 'library', name: translate('menuTypeSuggestMyTypes'), children: library },
 		];
 
 		if (filter) {
 			const store = items.filter(it => (it.workspaceId == Constant.storeSpaceId) && !librarySources.includes(it.id));
 
 			sections = sections.concat([
-				{ id: 'store', name: 'Anytype library', children: store },
-				{ children: [ { id: 'add', name: `Create type "${filter}"` } ] }
+				{ id: 'store', name: translate('commonAnytypeLibrary'), children: store },
+				{ children: [ { id: 'add', name: UtilCommon.sprintf(translate('menuTypeSuggestCreateType'), filter) } ] }
 			]);
 		} else {
 			sections = sections.concat([
 				{ 
 					children: [
-						{ id: 'store', icon: 'store', name: 'Anytype library', arrow: true }
+						{ id: 'store', icon: 'store', name: translate('commonAnytypeLibrary'), arrow: true }
 					] 
 				},
 			]);
@@ -368,6 +368,7 @@ const MenuTypeSuggest = observer(class MenuTypeSuggest extends React.Component<I
 		const { getId, getSize, param } = this.props;
 		const { data } = param;
 		const sources = this.getLibrarySources();
+		const className = [];
 
 		let menuId = '';
 		let menuParam: I.MenuParam = {
@@ -386,8 +387,14 @@ const MenuTypeSuggest = observer(class MenuTypeSuggest extends React.Component<I
 
 		switch (item.id) {
 			case 'store': {
+				className.push('single');
+
+				if (param.className) {
+					className.push(param.className);
+				};
+
 				menuId = 'searchObject';
-				menuParam.className = 'single';
+				menuParam.className = className.join(' ');
 
 				let filters: I.Filter[] = [
 					{ operator: I.FilterOperator.And, relationKey: 'workspaceId', condition: I.FilterCondition.Equal, value: Constant.storeSpaceId },
@@ -414,9 +421,7 @@ const MenuTypeSuggest = observer(class MenuTypeSuggest extends React.Component<I
 		};
 
 		if (menuId && !menuStore.isOpen(menuId, item.id)) {
-			menuStore.closeAll([ 'searchObject' ], () => {
-				menuStore.open(menuId, menuParam);
-			});
+			menuStore.closeAll([ 'searchObject' ], () => menuStore.open(menuId, menuParam));
 		};
 	};
 	
