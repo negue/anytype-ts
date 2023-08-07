@@ -13,6 +13,8 @@ import BlockContentDataview from './content/dataview';
 import { BlockContentTableRow } from './content/table';
 import BlockContentWidget from './content/widget';
 
+// testing changes
+
 const ContentModel = {
 	layout:		 BlockContentLayout,
 	link:		 BlockContentLink,
