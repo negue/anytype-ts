@@ -1,7 +1,7 @@
 import * as React from 'react';
 import $ from 'jquery';
 import { observer } from 'mobx-react';
-import { I, M, C, UtilData, UtilObject, UtilCommon, analytics, keyboard } from 'Lib';
+import { I, M, C, UtilData, UtilObject, UtilCommon, analytics, keyboard, translate } from 'Lib';
 import { Block, Drag } from 'Component';
 import { blockStore, detailStore } from 'Store';
 
@@ -41,27 +41,6 @@ const PageHeadEdit = observer(class PageHeadEdit extends React.Component<Props> 
 		if (root.isObjectHuman()) {
 			icon.type = I.BlockType.IconUser;
 		};
-
-		/*
-		let note = null;
-		if (templateIsBundled) {
-			note = (
-				<div id="note" className="note">
-					<div className="inner">
-						<div className="sides">
-							<div className="side left">
-								This template cannot be changed, because it is Basic for this object type.<br />
-								If you want to edit, create a Duplicate of this template.
-							</div>
-							<div className="side right">
-								<Button color="dark" text="Duplicate" onClick={this.onClone} />
-							</div>
-						</div>
-					</div>
-				</div>
-			);
-		};
-		*/
 
 		return (
 			<div ref={node => this.node = node}>

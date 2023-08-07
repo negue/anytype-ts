@@ -1,9 +1,9 @@
 import $ from 'jquery';
-import raf from 'raf';
 import { I, Preview, Renderer, translate } from 'Lib';
 import { popupStore, menuStore } from 'Store';
 import Constant from 'json/constant.json';
 import Errors from 'json/error.json';
+import Text from 'json/text.json';
 
 class UtilCommon {
 
@@ -296,9 +296,9 @@ class UtilCommon {
 		document.execCommand('copy');
 	};
 
-	clipboardCopyToast (label: string, text: string) {
+	copyToast (label: string, text: string) {
 		this.clipboardCopy({ text });
-		Preview.toastShow({ text: `${label} has been copied to clipboard` });
+		Preview.toastShow({ text: this.sprintf(translate('toastCopy'), label) });
 	};
 	
 	cacheImages (images: string[], callBack?: () => void) {
@@ -482,18 +482,20 @@ class UtilCommon {
 		});
 	};
 
-	day (t: any): string {
+	dayString (t: any): string {
 		t = Number(t) || 0;
 
 		const ct = this.date('d.m.Y', t);
-		if (ct == this.date('d.m.Y', this.time())) {
-			return 'Today';
+		const time = this.time();
+
+		if (ct == this.date('d.m.Y', time)) {
+			return translate('commonToday');
 		};
-		if (ct == this.date('d.m.Y', this.time() + 86400)) {
-			return 'Tomorrow';
+		if (ct == this.date('d.m.Y', time + 86400)) {
+			return translate('commonTomorrow');
 		};
-		if (ct == this.date('d.m.Y', this.time() - 86400)) {
-			return 'Yesterday';
+		if (ct == this.date('d.m.Y', time - 86400)) {
+			return translate('commonYesterday');
 		};
 		return '';
 	};
@@ -643,7 +645,7 @@ class UtilCommon {
 		return ret;
 	};
 	
-	filterFix (v: string) {
+	regexEscape (v: string) {
 		return String(v || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	};
 
@@ -712,13 +714,17 @@ class UtilCommon {
 		return rect;
 	};
 
-	cntWord (cnt: any, w1: string, w2?: string) {
+	plural (cnt: any, words: string) {
+		const chunks = words.split('|');
+		const single = chunks[0];
+		const multiple = chunks[1] ? chunks[1] : single;
+
 		cnt = String(cnt || '');
-		w2 = w2 ? w2 : w1 + 's';
+
 		if (cnt.substr(-2) == 11) {
-			return w2;
+			return multiple;
 		};
-		return cnt.substr(-1) == '1' ? w1 : w2;
+		return cnt.substr(-1) == '1' ? single : multiple;
 	};
 
 	getPlatform () {
@@ -1044,6 +1050,13 @@ class UtilCommon {
 
 	getPercent (part: number, whole: number): number {
 		return Number((part / whole * 100).toFixed(1));
+	};
+
+	translateError (command: string, error: any) {
+		const { code, description } = error;
+		const id = this.toCamelCase(`error-${command}${code}`);
+
+		return Text[id] ? translate(id) : description;
 	};
 
 };

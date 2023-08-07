@@ -540,9 +540,17 @@ class UtilData {
 		});
 	};
 
-	// Check if there are at least 2 templates for object types
-	checkTemplateCnt (ids: string[], callBack?: (message: any) => void) {
-		this.checkObjectWithRelationCnt('targetObjectType', Constant.typeId.template, ids, 2, callBack);
+	// Check if there are at least 1 template for object types
+	checkTemplateCnt (ids: string[], callBack?: (cnt: number) => void) {
+		this.checkObjectWithRelationCnt('targetObjectType', Constant.typeId.template, ids, 1, (message: any) => {
+			if (callBack) {
+				callBack(message.records.length);
+			};
+		});
+	};
+
+	checkBlankTemplate (template: any) {
+		return template && (template.id != Constant.templateId.blank) ? template : null;
 	};
 
 	// Check if there is at least 1 set for object types
@@ -740,7 +748,7 @@ class UtilData {
 			filters.push({ operator: I.FilterOperator.And, relationKey: 'isArchived', condition: I.FilterCondition.NotEqual, value: true });
 		};
 
-		C.ObjectSearch(filters, sorts, keys.concat([ idField ]), UtilCommon.filterFix(param.fullText), offset, limit, callBack);
+		C.ObjectSearch(filters, sorts, keys.concat([ idField ]), UtilCommon.regexEscape(param.fullText), offset, limit, callBack);
 	};
 
 	setWindowTitle (rootId: string, objectId: string) {

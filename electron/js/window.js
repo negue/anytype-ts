@@ -145,16 +145,18 @@ class WindowManager {
 			backgroundColor: Util.getBgColor(Util.getTheme()),
 		});
 
-		win.loadURL('file://' + path.join(Util.electronPath(), 'about', `index.html?version=${version}&theme=${Util.getTheme()}`));
+		win.loadURL('file://' + path.join(Util.electronPath(), 'about', `index.html?version=${version}&theme=${Util.getTheme()}&lang=${Util.getLang()}`));
 		win.setMenu(null);
 
 		win.webContents.on('will-navigate', (e, url) => {
 			e.preventDefault();
+			// eslint-disable-next-line no-undef
 			shell.openExternal(url);
 		});
 
 		win.webContents.on('new-window', (e, url) => {
 			e.preventDefault();
+			// eslint-disable-next-line no-undef
 			shell.openExternal(url);
 		});
 

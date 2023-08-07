@@ -607,7 +607,7 @@ class Dispatcher {
 
 					if (data.hasFields()) {
 						const fields = Mapper.From.ViewFields(data.getFields());
-						const updateKeys = [ 'type', 'groupRelationKey', 'pageLimit' ];
+						const updateKeys = [ 'type', 'groupRelationKey', 'pageLimit', 'defaultTemplateId' ];
 
 						for (const f of updateKeys) {
 							if (fields[f] != view[f]) {
@@ -638,8 +638,8 @@ class Dispatcher {
 								const items = (op.getItemsList() || []).map(mapper);
 								const idx = afterId ? list.findIndex(it => it[key.idField] == afterId) + 1 : list.length;
 
-								items.forEach((item, i) => { 
-									list.splice(idx + i, 0, item);
+								items.forEach((it, i) => { 
+									list.splice(idx + i, 0, it);
 								});
 
 								if ([ 'filter', 'sort', 'relation' ].includes(key.id)) {
@@ -954,29 +954,53 @@ class Dispatcher {
 							break;
 						};
 
+						case I.ProgressState.Error:
 						case I.ProgressState.Done:
 						case I.ProgressState.Canceled: {
 							commonStore.progressClear();
 
-							if (state != I.ProgressState.Done) {
-								break;
-							};
-
 							let title = '';
 							let text = '';
-							let showPopup = [ I.ProgressType.Import, I.ProgressType.Export ].includes(type);
+							let textConfirm = '';
+							let showPopup = [ I.ProgressType.Import, I.ProgressType.Export ].includes(type) && [ I.ProgressState.Done, I.ProgressState.Error ].includes(state);
 
-							switch (type) {
-								case I.ProgressType.Import: { 
-									title = 'The import process is complete!';
-									text = 'Now the data is yours. You will find the imported objects in your favorite collection.'; 
-									break; 
+							switch (state) {
+								case I.ProgressState.Error: {
+									textConfirm = translate('dispatcherImportTryAgain');
+
+									switch (type) {
+										case I.ProgressType.Import: { 
+											title = translate('dispatcherImportErrorTitle');
+											text = translate('dispatcherImportErrorText'); 
+											break; 
+										};
+
+										case I.ProgressType.Export: { 
+											title = translate('dispatcherExportErrorTitle');
+											text = translate('dispatcherExportErrorText');
+											break; 
+										};
+									};
+									break;
 								};
 
-								case I.ProgressType.Export: { 
-									title = 'The export process is complete!';
-									text = 'You can find the exported objects in the folder you selected.';
-									break; 
+								case I.ProgressState.Done: {
+									textConfirm = translate('dispatcherImportConfirm');
+
+									switch (type) {
+										case I.ProgressType.Import: { 
+											title = translate('dispatcherImportSuccessTitle');
+											text = translate('dispatcherImportSuccessText'); 
+											break; 
+										};
+
+										case I.ProgressType.Export: { 
+											title = translate('dispatcherExportSuccessTitle');
+											text = translate('dispatcherExportSuccessText');
+											break; 
+										};
+									};
+									break;
 								};
 							};
 
@@ -986,7 +1010,7 @@ class Dispatcher {
 										data: { 
 											title, 
 											text,
-											textConfirm: 'Ok! I got it!',
+											textConfirm,
 											canCancel: false,
 										} 
 									}); 
@@ -1165,7 +1189,7 @@ class Dispatcher {
 				};
 
 				message.event = response.getEvent ? response.getEvent() : null;
-				message.error = { code: code, description: description };
+				message.error = { code, description };
 
 				if (message.error.code) {
 					console.error('Error', type, 'code:', message.error.code, 'description:', message.error.description);
@@ -1174,6 +1198,8 @@ class Dispatcher {
 						Sentry.captureMessage(`${type}: code: ${code} msg: ${message.error.description}`);
 						analytics.event('Exception', { method: type, code: message.error.code });
 					};
+
+					message.error.description = UtilCommon.translateError(type, message.error);
 				};
 
 				if (debug && !SKIP_IDS.includes(type)) {

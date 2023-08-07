@@ -2,7 +2,7 @@ import * as React from 'react';
 import $ from 'jquery';
 import { observer } from 'mobx-react';
 import { MenuItemVertical, Filter, ObjectName } from 'Component';
-import { I, UtilCommon, keyboard, UtilData, UtilObject, UtilMenu, analytics, focus } from 'Lib';
+import { I, UtilCommon, keyboard, UtilData, UtilObject, UtilMenu, analytics, focus, translate } from 'Lib';
 import { commonStore, menuStore, dbStore } from 'Store';
 import { AutoSizer, CellMeasurer, InfiniteLoader, List, CellMeasurerCache } from 'react-virtualized';
 import Constant from 'json/constant.json';
@@ -32,6 +32,7 @@ const MenuBlockLink = observer(class MenuBlockLink extends React.Component<I.Men
 	n = -1;
 	top = 0;
 	offset = 0;
+	timeout = 0;
 	refList: any = null;
 	refFilter: any = null;
 
@@ -151,7 +152,7 @@ const MenuBlockLink = observer(class MenuBlockLink extends React.Component<I.Men
 			<div className="wrap">
 				<Filter 
 					ref={ref => this.refFilter = ref} 
-					placeholder="Paste link or search objects" 
+					placeholder={translate('menuBlockLinkFilterPlaceholder')}
 					value={filter}
 					onChange={this.onFilterChange}
 					onClear={this.onFilterClear}
@@ -200,6 +201,7 @@ const MenuBlockLink = observer(class MenuBlockLink extends React.Component<I.Men
 	
 	componentWillUnmount () {
 		this._isMounted = false;
+		window.clearTimeout(this.timeout);
 	};
 
 	rebind () {
@@ -213,7 +215,10 @@ const MenuBlockLink = observer(class MenuBlockLink extends React.Component<I.Men
 	};
 
 	onFilterChange (e: any) {
-		menuStore.updateData(this.props.id, { filter: this.refFilter.getValue() });
+		window.clearTimeout(this.timeout);
+		this.timeout = window.setTimeout(() => {
+			menuStore.updateData(this.props.id, { filter: this.refFilter.getValue() });
+		}, 500);
 	};
 
 	onFilterClear () {
@@ -237,7 +242,7 @@ const MenuBlockLink = observer(class MenuBlockLink extends React.Component<I.Men
 
 		const regProtocol = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)?/gi;
 		const buttons: any[] = [
-			{ id: 'add', name: `Create object "${filter}"`, icon: 'plus' }
+			{ id: 'add', name: UtilCommon.sprintf(translate('commonCreateObject'), filter), icon: 'plus' }
 		];
 		const items = [].concat(this.items).map(it => ({ ...it, isBig: true }));
 
@@ -246,13 +251,13 @@ const MenuBlockLink = observer(class MenuBlockLink extends React.Component<I.Men
 		};
 
 		if (UtilCommon.matchUrl(filter) || filter.match(new RegExp(regProtocol))) {
-			buttons.unshift({ id: 'link', name: 'Link to website', icon: 'link' });
+			buttons.unshift({ id: 'link', name: translate('menuBlockLinkSectionsLinkToWebsite'), icon: 'link' });
 		};
 
 		const sections: any[] = [];
 
 		if (items.length) {
-			sections.push({ id: I.MarkType.Object, name: 'Objects', children: items });
+			sections.push({ id: I.MarkType.Object, name: translate('commonObjects'), children: items });
 		};
 
 		sections.push({ id: I.MarkType.Link, name: '', children: buttons });

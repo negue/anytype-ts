@@ -1,3 +1,4 @@
+const { exec } = require('child_process');
 const { app, shell, nativeTheme } = require('electron');
 const { is } = require('electron-util');
 const log = require('electron-log');
@@ -119,7 +120,7 @@ class Util {
 
 			// Replace files loaded by url and copy them in page folder
 			try {
-				content = content.replace(/"(file:\/\/[^"]+)"/g, function (s, p, o) {
+				content = content.replace(/'(file:\/\/[^']+)'/g, function (s, p, o) {
 					let a = p.split('app.asar/dist/');
 					let name = a[1].split('/');
 
@@ -129,7 +130,7 @@ class Util {
 					let dst = path.join(filesPath, name).replace(/\?.*/, '');
 
 					fs.copyFileSync(src, dst);
-					return `"./${fn}/${name}"`;
+					return `'./${fn}/${name}'`;
 				});
 			} catch (e) {
 				this.log('info', e);
@@ -145,17 +146,17 @@ class Util {
 				let replaceJs = '';
 				let replaceCss = '';
 				let replaceMeta = `
-					<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+					<meta name='viewport' content='width=device-width, initial-scale=1.0' />
 				`;
 
 				js.forEach(it => {
 					fs.copyFileSync(`${ap}/dist/js/${it}.js`, path.join(filesPath, it + '.js'));
-					replaceJs += `<script src="./${fn}/${it}.js" type="text/javascript"></script>`;
+					replaceJs += `<script src='./${fn}/${it}.js' type='text/javascript'></script>`;
 				});
 
 				css.forEach(it => {
 					fs.copyFileSync(`${ap}/dist/css/${it}.css`, path.join(filesPath, it + '.css'));
-					replaceCss += `<link rel="stylesheet" href="./${fn}/${it}.css" type="text/css" />`;
+					replaceCss += `<link rel='stylesheet' href='./${fn}/${it}.css' type='text/css' />`;
 				});
 
 				content = content.replace('<!-- %REPLACE-JS% -->', replaceJs);
@@ -204,6 +205,41 @@ class Util {
 
 	fileName (name) {
 		return sanitize(String(name || 'untitled').trim());
+	};
+
+	getLang () {
+		return ConfigManager.config.interfaceLang || 'en-US';
+	};
+
+	enabledLangs () {
+		return [ "da-DK", "de-DE", "en-US", "es-ES", "fr-FR", "hi-IN", "id-ID", "it-IT", "no-NO", "ro-RO", "uk-UA", "zh-CN", "zh-TW" ];
+	};
+
+	translate (key) {
+		const lang = this.getLang();
+		const defaultData = require(`../../dist/lib/json/lang/en-US.json`);
+
+		let data = {};
+		try { data = require(`../../dist/lib/json/lang/${lang}.json`); } catch(e) {};
+
+		return data[key] || defaultData[key] || `⚠️${key}⚠️`;
+	};
+
+	execPromise (command) {
+		return new Promise(function(resolve, reject) {
+			exec(command, (error, stdout, stderr) => {
+				console.log('Error: ', error, stderr);
+
+				if (error || stderr) {
+					reject(error || stderr);
+					return;
+				};
+
+				console.log('Out: ', stdout.trim());
+
+				resolve(stdout.trim());
+			});
+		});
 	};
 
 };

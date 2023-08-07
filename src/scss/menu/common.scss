@@ -87,6 +87,9 @@
 		.item.hover, .item:hover {
 			.icon.delete, .icon.more { opacity: 1; }
 		}
+		.item.withMore.hover, .item.withMore:hover {
+			.caption { opacity: 0; }
+		}
 
 		.item.isReadonly::before { transition: none; }
 		.item.isReadonly.hover::before, .item.isReadonly:hover::before { opacity: 0; background: none; }
@@ -143,19 +146,19 @@
 			.info { padding-left: 52px; }
 		}
 
-		.item.withCaption { display: flex; align-items: center; }
+		.item.withCaption { display: flex; align-items: center; justify-content: space-between; }
 		.item.withCaption {
 			.iconObject, .icon.dnd { flex-shrink: 0; }
 			.name { width: 100%; margin-right: 6px; }
 
-			.clickable { width: calc(100% - 108px); margin-right: 6px; }
+			.clickable { margin-right: 6px; flex-grow: 1; }
 			.clickable {
 				.name { margin: 0px; width: 100%; }
 			}
 
 			.caption { 
 				@include text-overflow-nw; display: inline-block; vertical-align: top; color: $colorDarkGrey; @include text-small; text-align: right;
-				flex-shrink: 0; line-height: 20px; width: 80px;
+				flex-shrink: 0; line-height: 20px;
 			}
 
 			.highlightMark { position: relative; top: auto; right: auto; margin: 0px 0px 0px 10px; }

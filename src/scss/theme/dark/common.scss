@@ -26,7 +26,7 @@ html.themeDark {
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); }
 	::selection { background-color: rgba(24, 163, 241, 0.15); }
 
-    .textColor-default { color: $colorPrimary; }
+    .textColor-default { color: $colorPrimary !important; }
 
     .bgColor-grey { background: rgba(140, 158, 165, 0.25) !important; }
     .bgColor-yellow { background: rgba(236, 217, 27, 0.25) !important; }
@@ -160,6 +160,12 @@ html.themeDark {
         .item.add { border-color: $colorLinePrimary; }
         .item:before { background: $colorHoverMedium; }
 
+        .item {
+            > .icon.more:hover,
+            > .icon.more.hover { background-color: $colorHoverMedium; }
+            > .defaultLabel { background: $colorHoverMedium; color: $colorSecondary; }
+        }
+
         .icon.arrow { background-image: url('#{$themePath}/arrow/template0.svg'); }
         .icon.arrow:hover { background-image: url('#{$themePath}/arrow/template1.svg'); }
         .icon.arrow.disabled:hover { background-image: url('#{$themePath}/arrow/template0.svg'); }
@@ -194,6 +200,12 @@ html.themeDark {
                     }
                 }
             }
+        }
+    }
+
+    .previewObject.blank {
+        .heading {
+            .name { color: $colorSecondary; }
         }
     }
 
