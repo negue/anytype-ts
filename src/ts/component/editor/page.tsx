@@ -1218,6 +1218,10 @@ const EditorPage = observer(class EditorPage extends React.Component<Props, Stat
 
 		const mark = Mark.getInRange(marks, type, range);
 		const win = $(window);
+		const cb = () => {
+			focus.set(block.id, range);
+			focus.apply(); 
+		};
 
 		if (type == I.MarkType.Link) {
 			menuStore.close('blockContext', () => {
@@ -1233,14 +1237,14 @@ const EditorPage = observer(class EditorPage extends React.Component<Props, Stat
 						type: mark ? mark.type : null,
 						onChange: (newType: I.MarkType, param: string) => {
 							marks = Mark.toggleLink({ type: newType, param, range }, marks);
-							UtilData.blockSetText(rootId, block.id, text, marks, true, () => { focus.apply(); });
+							UtilData.blockSetText(rootId, block.id, text, marks, true, cb);
 						}
 					}
 				});
 			});
 		} else {
-			marks = Mark.toggle(marks, { type: type, param: mark ? '' : param, range: range });
-			UtilData.blockSetText(rootId, block.id, text, marks, true, () => { focus.apply(); });
+			marks = Mark.toggle(marks, { type, param: mark ? '' : param, range });
+			UtilData.blockSetText(rootId, block.id, text, marks, true, cb);
 		};
 	};
 
@@ -1762,10 +1766,10 @@ const EditorPage = observer(class EditorPage extends React.Component<Props, Stat
 
 		const options: any[] = [
 			{ id: 'link', name: 'Paste as link' },
-			isEmpty && !isInsideTable ? { id: 'object', name: 'Create bookmark object' } : null,
-			!isInsideTable ? { id: 'block', name: 'Create bookmark' } : null,
-			{ id: 'cancel', name: 'Paste as text' },
-			//{ id: 'embed', name: 'Paste as embed' },
+			isEmpty && !isInsideTable ? { id: 'object', name: translate('editorPageCreateBookmarkObject') } : null,
+			!isInsideTable ? { id: 'block', name: translate('editorPageCreateBookmark') } : null,
+			{ id: 'cancel', name: translate('editorPagePasteText') },
+			//{ id: 'embed', name: translate('editorPagePasteEmbed') },
 		].filter(it => it);
 
 		menuStore.open('select', { 
@@ -2144,17 +2148,17 @@ const EditorPage = observer(class EditorPage extends React.Component<Props, Stat
 			const last = node.find('#blockLast');
 			const size = node.find('#editorSize');
 			const cover = node.find('.block.blockCover');
-			const obj = this.getContainer();
-			const header = obj.find('#header');
+			const pageContainer = UtilCommon.getPageContainer(this.props.isPopup);
+			const header = pageContainer.find('#header');
 			const root = blockStore.getLeaf(rootId, rootId);
-			const container = UtilCommon.getScrollContainer(isPopup);
+			const scrollContainer = UtilCommon.getScrollContainer(isPopup);
 			const hh = isPopup ? header.height() : UtilCommon.sizeHeader();
 
 			this.setLayoutWidth(root?.fields?.width);
 
-			if (blocks.length && last.length && container.length) {
-				const ct = isPopup ? container.offset().top : 0;
-				const ch = container.height();
+			if (blocks.length && last.length && scrollContainer.length) {
+				const ct = isPopup ? scrollContainer.offset().top : 0;
+				const ch = scrollContainer.height();
 				const height = Math.max(ch / 2, ch - blocks.outerHeight() - blocks.offset().top - ct - 2);
 
 				last.css({ height: Math.max(Constant.size.lastBlock, height) });
@@ -2172,10 +2176,6 @@ const EditorPage = observer(class EditorPage extends React.Component<Props, Stat
 		});
 	};
 
-	getContainer () {
-		return UtilCommon.getPageContainer(this.props.isPopup);
-	};
-	
 	focus (id: string, from: number, to: number, scroll: boolean) {
 		const { isPopup } = this.props;
 

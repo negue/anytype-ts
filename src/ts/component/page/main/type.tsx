@@ -2,7 +2,7 @@ import * as React from 'react';
 import $ from 'jquery';
 import { observer } from 'mobx-react';
 import { Icon, Header, Footer, Loader, ListObjectPreview, ListObject, Select, Deleted } from 'Component';
-import { I, C, UtilData, UtilObject, UtilMenu, UtilCommon, focus, Action, analytics, Relation } from 'Lib';
+import { I, C, UtilData, UtilObject, UtilMenu, UtilCommon, focus, Action, analytics, Relation, translate } from 'Lib';
 import { commonStore, detailStore, dbStore, menuStore, popupStore, blockStore } from 'Store';
 import Controls from 'Component/page/head/controls';
 import HeadSimple from 'Component/page/head/simple';
@@ -13,13 +13,6 @@ interface State {
 	isLoading: boolean;
 	isDeleted: boolean;
 };
-
-const NO_TEMPLATES = [ 
-	Constant.typeId.note, 
-	Constant.typeId.set, 
-	Constant.typeId.collection,
-	Constant.typeId.bookmark,
-].concat(UtilObject.getFileTypes()).concat(UtilObject.getSystemTypes());
 
 const PageMainType = observer(class PageMainType extends React.Component<I.PageComponent, State> {
 
@@ -63,12 +56,10 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 		const check = UtilData.checkDetails(rootId);
 		const object = detailStore.get(rootId, rootId);
 		const subIdTemplate = this.getSubIdTemplate();
+		const templates = dbStore.getRecords(subIdTemplate, '');
 
-		const templates = dbStore.getRecords(subIdTemplate, '').map(id => detailStore.get(subIdTemplate, id, []));
-		const totalTemplate = dbStore.getMeta(subIdTemplate, '').total;
-		const totalObject = dbStore.getMeta(this.getSubIdObject(), '').total;
 		const layout: any = UtilMenu.getLayouts().find(it => it.id == object.recommendedLayout) || {};
-		const showTemplates = !NO_TEMPLATES.includes(rootId);
+		const showTemplates = !UtilObject.getLayoutsWithoutTemplates().includes(object.recommendedLayout);
 		const recommendedRelations = Relation.getArrayValue(object.recommendedRelations);
 		const systemRelations = Relation.systemKeys();
 
@@ -77,6 +68,9 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 		const allowedRelation = object.isInstalled && blockStore.checkFlags(rootId, rootId, [ I.RestrictionObject.Relation ]);
 		const allowedTemplate = object.isInstalled && allowedObject && showTemplates;
 		const allowedLayout = rootId != Constant.typeId.bookmark;
+		
+		const totalObject = dbStore.getMeta(this.getSubIdObject(), '').total;
+		const totalTemplate = templates.length + (allowedTemplate ? 1 : 0);
 
 		if (!recommendedRelations.includes('rel-description')) {
 			recommendedRelations.push('rel-description');
@@ -98,13 +92,13 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 		const isFileType = UtilObject.isFileType(rootId);
 		const columns: any[] = [
 			{ 
-				relationKey: 'lastModifiedDate', name: 'Updated',  
+				relationKey: 'lastModifiedDate', name: translate('commonUpdated'),
 				mapper: (v: any) => UtilCommon.date(UtilData.dateFormat(I.DateFormat.MonthAbbrBeforeDay), v),
 			},
 		];
 
 		if (!isFileType) {
-			columns.push({ relationKey: 'creator', name: 'Owner', isObject: true });
+			columns.push({ relationKey: 'creator', name: translate('pageMainTypeOwner'), isObject: true });
 		};
 
 		const ItemRelation = (item: any) => (
@@ -120,7 +114,7 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 			<div id="item-add" className="item add" onClick={this.onRelationAdd}>
 				<div className="clickable">
 					<Icon className="plus" />
-					<div className="name">New</div>
+					<div className="name">{translate('commonNew')}</div>
 				</div>
 				<div className="value" />
 			</div>
@@ -137,11 +131,11 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 					{showTemplates ? (
 						<div className="section template">
 							<div className="title">
-								{totalTemplate} {UtilCommon.cntWord(totalTemplate, 'template', 'templates')}
+								{totalTemplate} {UtilCommon.plural(totalTemplate, translate('pluralTemplate'))}
 
 								{allowedTemplate ? (
 									<div className="btn" onClick={this.onTemplateAdd}>
-										<Icon className="plus" />New
+										<Icon className="plus" />{translate('commonNew')}
 									</div>
 								) : ''}
 							</div>
@@ -151,30 +145,33 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 									<ListObjectPreview 
 										key="listTemplate"
 										ref={ref => this.refListPreview = ref}
-										getItems={() => templates}
+										getItems={() => dbStore.getRecords(subIdTemplate, '').map(id => detailStore.get(subIdTemplate, id, []))}
 										canAdd={allowedTemplate}
 										onAdd={this.onTemplateAdd}
-										onClick={(e: any, item: any) => { UtilObject.openPopup(item); }} 
+										onMenu={allowedTemplate ? (e: any, item: any) => this.onMenu(item) : null}
+										onClick={(e: any, item: any) => UtilObject.openPopup(item)}
+										withBlank={true}
+										defaultId={object.defaultTemplateId || Constant.templateId.blank}
 									/>
 								</div>
 							) : (
 								<div className="empty">
-									This object type doesn&apos;t have templates
+									{translate('pageMainTypeNoTemplates')}
 								</div>
 							)}
 						</div>
 					) : ''}
 
 					<div className="section note dn">
-						<div className="title">Notes</div>
-						<div className="content">People often distinguish between an acquaintance and a friend, holding that the former should be used primarily to refer to someone with whom one is not especially close. Many of the earliest uses of acquaintance were in fact in reference to a person with whom one was very close, but the word is now generally reserved for those who are known only slightly.</div>
+						<div className="title"></div>
+						<div className="content"></div>
 					</div>
 
 					{allowedObject ? (
 						<React.Fragment>
 							{allowedLayout ? (
 								<div className="section layout">
-									<div className="title">Recommended layout</div>
+									<div className="title">{translate('pageMainTypeRecommendedLayout')}</div>
 									<div className="content">
 										{allowedDetails ? (
 											<Select 
@@ -195,7 +192,7 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 							) : ''}
 
 							<div className="section relation">
-								<div className="title">{relations.length} {UtilCommon.cntWord(relations.length, 'relation', 'relations')}</div>
+								<div className="title">{relations.length} {UtilCommon.plural(relations.length, translate('pluralRelation'))}</div>
 								<div className="content">
 									{relations.map((item: any, i: number) => (
 										<ItemRelation key={i} {...item} />
@@ -208,7 +205,7 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 
 					{object.isInstalled ? (
 						<div className="section set">
-							<div className="title">{totalObject} {UtilCommon.cntWord(totalObject, 'object', 'objects')}</div>
+							<div className="title">{totalObject} {UtilCommon.plural(totalObject, translate('pluralObject'))}</div>
 							<div className="content">
 								<ListObject rootId={rootId} columns={columns} />
 							</div>
@@ -323,15 +320,15 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 			};
 
 			focus.clear(true);
-			analytics.event('CreateTemplate', { objectType: rootId });
+			analytics.event('CreateTemplate', { objectType: rootId, route: 'Library' });
 
-			UtilObject.openPopup(message.details, {
-				onClose: () => {
-					if (this.refListPreview) {
-						this.refListPreview.updateItem(message.objectId);
-					};
-				}
-			});
+			this.templateOpen(message.details);
+		});
+	};
+
+	templateOpen (object: any) {
+		UtilObject.openPopup(object, {
+			onClose: () => $(window).trigger(`updatePreviewObject.${object.id}`)
 		});
 	};
 
@@ -343,10 +340,10 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 		const options = [];
 
 		if (allowedObject) {
-			options.push({ id: 'object', name: 'New object' });
+			options.push({ id: 'object', name: translate('pageMainTypeNewObject') });
 		};
 
-		options.push({ id: 'set', name: 'New set of objects' });
+		options.push({ id: 'set', name: translate('pageMainTypeNewSetOfObjects') });
 
 		menuStore.open('select', { 
 			element: `#button-create`,
@@ -408,12 +405,8 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 			});
 		};
 
-		UtilData.checkTemplateCnt([ rootId ], (message: any) => {
-			if (message.records.length > 1) {
-				showMenu();
-			} else {
-				create(message.records.length ? message.records[0] : '');
-			};
+		UtilData.checkTemplateCnt([ rootId ], (cnt: number) => {
+			cnt ? showMenu() : create('');
 		});
 	};
 
@@ -502,6 +495,54 @@ const PageMainType = observer(class PageMainType extends React.Component<I.PageC
 			{ key: 'recommendedLayout', value: Number(layout) || I.ObjectLayout.Page } 
 		]);
 		analytics.event('ChangeRecommendedLayout', { objectType: rootId, layout: layout });
+	};
+
+	onMenu (item: any) {
+		if (menuStore.isOpen('dataviewTemplate', item.id)) {
+			menuStore.close('dataviewTemplate');
+			return;
+		};
+
+		const rootId = this.getRootId();
+		const object = detailStore.get(rootId, rootId);
+		const { defaultTemplateId } = object;
+		const template: any = { id: item.id, typeId: rootId };
+
+		if (template.id == Constant.templateId.blank) {
+			template.isBlank = true;
+
+			if (!object.defaultTemplateId) {
+				template.isDefault = true;
+			};
+		} else
+		if (template.id == defaultTemplateId) {
+			template.isDefault = true;
+		};
+
+		menuStore.closeAll(Constant.menuIds.dataviewTemplate, () => {
+			menuStore.open('dataviewTemplate', {
+				menuKey: item.id,
+				element: `#item-${item.id} .more`,
+				vertical: I.MenuDirection.Bottom,
+				horizontal: I.MenuDirection.Right,
+				onOpen: () => $(`#item-${item.id}`).addClass('active'),
+				onClose: () => $(`#item-${item.id}`).removeClass('active'),
+				data: {
+					template,
+					onSetDefault: () => {
+						UtilObject.setDefaultTemplateId(rootId, template.id);
+					},
+					onDuplicate: (object: any) => {
+						this.templateOpen(object);
+					},
+					onDelete: () => {
+						if (template.isDefault) {
+							UtilObject.setDefaultTemplateId(rootId, '');
+						};
+					}
+				}
+			});
+		});
 	};
 
 	getRootId () {

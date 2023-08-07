@@ -1,14 +1,16 @@
 import * as React from 'react';
 import $ from 'jquery';
 import Prism from 'prismjs';
-import katex from 'katex';
 import raf from 'raf';
 import { observer } from 'mobx-react';
 import { Icon } from 'Component';
-import { I, keyboard, UtilCommon, C, focus, Renderer } from 'Lib';
+import { I, keyboard, UtilCommon, C, focus, Renderer, translate } from 'Lib';
 import { menuStore, commonStore, blockStore } from 'Store';
 import { getRange, setRange } from 'selection-ranges';
 import Constant from 'json/constant.json';
+
+const katex = require('katex');
+require('katex/dist/contrib/mhchem');
 
 const BlockLatex = observer(class BlockLatex extends React.Component<I.BlockComponent> {
 	
@@ -55,7 +57,7 @@ const BlockLatex = observer(class BlockLatex extends React.Component<I.BlockComp
 			>
 				<div className="selectWrap">
 					<div id="select" className="select" onClick={this.onTemplate}>
-						<div className="name">Template formula</div>
+						<div className="name">{translate('blockLatexTemplate')}</div>
 						<Icon className="arrow light" />
 					</div>
 				</div>
@@ -68,7 +70,7 @@ const BlockLatex = observer(class BlockLatex extends React.Component<I.BlockComp
 					id="input"
 					contentEditable={!readonly}
 					suppressContentEditableWarning={true}
-					placeholder="Enter text in format LaTeX" 
+					placeholder={translate('blockLatexPlaceholder')}
 					onSelect={this.onSelect}
 					onFocus={this.onFocusInput}
 					onBlur={this.onBlurInput}

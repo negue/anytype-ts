@@ -295,6 +295,8 @@ class BlockStore {
 
 			const ret = [] as any[];
 			for (const item of list) {
+				item.childBlocks = item.childBlocks || [];
+
 				for (let i = 0; i < item.childBlocks.length; i++) {
 					const child = item.childBlocks[i];
 					if (child.isLayoutDiv()) {
@@ -303,6 +305,7 @@ class BlockStore {
 						item.childBlocks = item.childBlocks.concat(unwrap(child.childBlocks));
 					};
 				};
+
 				ret.push(item);
 			};
 			return ret;
@@ -322,7 +325,7 @@ class BlockStore {
 					};
 				};
 
-				cb(item.childBlocks);
+				cb(unwrap(item.childBlocks));
 			};
 		};
 
@@ -533,6 +536,15 @@ class BlockStore {
 		const rows = rowContainer ? this.unwrapTree([ this.wrapTree(rootId, rowContainer.id) ]).filter(it => it.isTableRow()) : [];
 
 		return { childrenIds, columnContainer, columns, rowContainer, rows };
+	};
+
+	closeRecentWidgets () {
+		const { recentEdit, recentOpen } = Constant.widgetId;
+
+		const blocks = this.getBlocks(this.widgets, it => it.isLink() && [ recentEdit, recentOpen ].includes(it.content.targetBlockId));
+		if (blocks.length) {
+			blocks.forEach(it => Storage.setToggle('widget', it.parentId, true));
+		};
 	};
 
 };

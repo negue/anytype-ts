@@ -1,5 +1,5 @@
 import $ from 'jquery';
-import { I, C, UtilCommon, Storage, focus, history as historyPopup, analytics, Renderer, sidebar, UtilObject, Preview, Action } from 'Lib';
+import { I, C, UtilCommon, Storage, focus, history as historyPopup, analytics, Renderer, sidebar, UtilObject, Preview, Action, translate } from 'Lib';
 import { commonStore, authStore, blockStore, detailStore, menuStore, popupStore } from 'Store';
 import Constant from 'json/constant.json';
 import Url from 'json/url.json';
@@ -261,14 +261,11 @@ class Keyboard {
 					className: 'isWide isLeft',
 					data: {
 						text: `ID: ${this.getRootId()}`,
-						textConfirm: 'Copy',
-						textCancel: 'Close',
+						textConfirm: translate('commonCopy'),
+						textCancel: translate('commonClose'),
 						canConfirm: true,
 						canCancel: true,
-						onConfirm: () => {
-							UtilCommon.clipboardCopy({ text: this.getRootId() });
-							Preview.toastShow({ text: 'ID copied to clipboard' });
-						},
+						onConfirm: () => UtilCommon.copyToast('ID', this.getRootId()),
 					}
 				});
 			});
@@ -520,7 +517,7 @@ class Keyboard {
 			};
 
 			case 'exportTemplates': {
-				Action.openDir({ buttonLabel: 'Export' }, paths => {
+				Action.openDir({ buttonLabel: translate('commonExport') }, paths => {
 					C.TemplateExportAll(paths[0], (message: any) => {
 						if (message.error.code) {
 							return;
@@ -533,7 +530,7 @@ class Keyboard {
 			};
 
 			case 'exportLocalstore': {
-				Action.openDir({ buttonLabel: 'Export' }, paths => {
+				Action.openDir({ buttonLabel: translate('commonExport') }, paths => {
 					C.DebugExportLocalstore(paths[0], [], (message: any) => {
 						if (!message.error.code) {
 							Renderer.send('pathOpen', paths[0]);
@@ -601,27 +598,26 @@ class Keyboard {
 
 		C.AppGetVersion((message: any) => {
 			const data = [
-				[ 'Device', window.Electron.version.device ],
-				[ 'OS version', window.Electron.version.os ],
-				[ 'App version', window.Electron.version.app ],
-				[ 'Build number', message.details ],
-				[ 'Library version', message.version ],
-				[ 'Account ID', account.id ],
-				[ 'Analytics ID', account.info.analyticsId ],
-				[ 'Device ID', account.info.deviceId ],
+				[ translate('libKeyboardDevice'), window.Electron.version.device ],
+				[ translate('libKeyboardOSVersion'), window.Electron.version.os ],
+				[ translate('libKeyboardAppVersion'), window.Electron.version.app ],
+				[ translate('libKeyboardBuildNumber'), message.details ],
+				[ translate('libKeyboardLibraryVersion'), message.version ],
+				[ translate('libKeyboardAccountID'), account.id ],
+				[ translate('libKeyboardAnalyticsID'), account.info.analyticsId ],
+				[ translate('libKeyboardDeviceID'), account.info.deviceId ],
 			];
 
 			popupStore.open('confirm', {
 				className: 'isWide isLeft',
 				data: {
 					text: data.map(it => `<b>${it[0]}</b>: ${it[1]}`).join('<br/>'),
-					textConfirm: 'Copy',
-					textCancel: 'Close',
+					textConfirm: translate('commonCopy'),
+					textCancel: translate('commonClose'),
 					canConfirm: true,
 					canCancel: true,
 					onConfirm: () => {
-						UtilCommon.clipboardCopy({ text: data.map(it => `${it[0]}: ${it[1]}`).join('\n') });
-						Preview.toastShow({ text: 'Tech information copied to clipboard' });
+						UtilCommon.copyToast(translate('libKeyboardTechInformation'), data.map(it => `${it[0]}: ${it[1]}`).join('\n'));
 					},
 				}
 			});

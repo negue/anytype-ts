@@ -2,7 +2,7 @@ import * as React from 'react';
 import $ from 'jquery';
 import { observer } from 'mobx-react';
 import { Icon } from 'Component';
-import { I, C, UtilData, UtilObject, UtilCommon, Onboarding, focus, keyboard, analytics, history as historyPopup } from 'Lib';
+import { I, C, UtilData, UtilObject, UtilCommon, Onboarding, focus, keyboard, analytics, history as historyPopup, translate } from 'Lib';
 import { popupStore, detailStore, blockStore, menuStore } from 'Store';
 import Constant from 'json/constant.json';
 
@@ -73,7 +73,7 @@ const BlockType = observer(class BlockType extends React.Component<I.BlockCompon
 		const object = detailStore.get(rootId, rootId, []);
 		const items = UtilData.getObjectTypesForNewObject({ withCollection: true, withDefault: true }).filter(it => it.id != object.type);
 
-		items.push({ id: 'menu', icon: 'search', name: 'My types' });
+		items.push({ id: 'menu', icon: 'search', name: translate('blockTypeMyTypes') });
 
 		return items;
 	};
@@ -215,18 +215,16 @@ const BlockType = observer(class BlockType extends React.Component<I.BlockCompon
 		if (UtilObject.getSetTypes().includes(item.id)) {
 			this.onObjectTo(item.id);
 		} else {
-			UtilData.checkTemplateCnt([ item.id ], (message: any) => {
-				if (message.records.length > 1) {
+			UtilData.checkTemplateCnt([ item.id ], (cnt: number) => {
+				if (cnt) {
 					popupStore.open('template', { 
 						data: { 
 							typeId: item.id, 
-							onSelect: (template: any) => {
-								this.onCreate(item.id, template);
-							} 
+							onSelect: (template: any) => this.onCreate(item.id, template) 
 						} 
 					});
 				} else {
-					this.onCreate(item.id, message.records.length ? message.records[0] : null);
+					this.onCreate(item.id, null);
 				};
 			});
 		};

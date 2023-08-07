@@ -109,48 +109,51 @@ class MenuBlockMore extends React.Component<I.Menu> {
 		let pageLock = null;
 		let pageInstall = null;
 		let template = null;
+		let setDefaultTemplate = null;
 
-		let linkTo = { id: 'linkTo', icon: 'linkTo', name: 'Link to', arrow: true };
-		let print = { id: 'print', name: 'Print', caption: `${cmd} + P` };
-		let search = { id: 'search', name: 'Search on page', caption: `${cmd} + F` };
-		let move = { id: 'move', name: 'Move to', arrow: true };
-		let turn = { id: 'turnObject', icon: 'object', name: 'Turn into object', arrow: true };
-		let history = { id: 'history', name: 'Version history', caption: (UtilCommon.isPlatformMac() ? `${cmd} + Y` : `Ctrl + H`) };
-		let pageExport = { id: 'pageExport', icon: 'export', name: 'Export' };
-		let pageCopy = { id: 'pageCopy', icon: 'copy', name: 'Duplicate object' };
-		let pageLink = { id: 'pageLink', icon: 'link', name: 'Copy link' };
-		let pageReload = { id: 'pageReload', icon: 'reload', name: 'Reload from source' };
-		let blockRemove = { id: 'blockRemove', icon: 'remove', name: 'Delete' };
+		let linkTo = { id: 'linkTo', icon: 'linkTo', name: translate('commonLinkTo'), arrow: true };
+		let print = { id: 'print', name: translate('menuBlockMorePrint'), caption: `${cmd} + P` };
+		let search = { id: 'search', name: translate('menuBlockMoreSearchOnPage'), caption: `${cmd} + F` };
+		let move = { id: 'move', name: translate('menuBlockMoreMoveTo'), arrow: true };
+		let turn = { id: 'turnObject', icon: 'object', name: translate('commonTurnIntoObject'), arrow: true };
+		let history = { id: 'history', name: translate('menuBlockMoreVersionHistory'), caption: (UtilCommon.isPlatformMac() ? `${cmd} + Y` : `Ctrl + H`) };
+		let pageExport = { id: 'pageExport', icon: 'export', name: translate('menuBlockMoreExport') };
+		let pageCopy = { id: 'pageCopy', icon: 'copy', name: translate('menuBlockMoreDuplicateObject') };
+		let pageLink = { id: 'pageLink', icon: 'link', name: translate('menuBlockMoreCopyLink') };
+		let pageReload = { id: 'pageReload', icon: 'reload', name: translate('menuBlockMoreReloadFromSource') };
+		let blockRemove = { id: 'blockRemove', icon: 'remove', name: translate('commonDelete') };
 
 		if (isTemplate) {	
-			template = { id: 'pageCreate', icon: 'template', name: 'Create object' };
+			template = { id: 'pageCreate', icon: 'template', name: translate('menuBlockMoreCreateObject') };
+			setDefaultTemplate = { id: 'setDefault', icon: 'pin', name: translate('commonTemplateSetDefault') };
+			pageCopy.name = translate('menuBlockMoreDuplicateTemplate')
 		} else {
-			template = { id: 'templateCreate', icon: 'template', name: 'Use as a template' };
+			template = { id: 'templateCreate', icon: 'template', name: translate('menuBlockMoreUseAsTemplate') };
 		};
 
 		if (object.isFavorite) {
-			fav = { id: 'unfav', name: 'Remove from Favorites' };
+			fav = { id: 'unfav', name: translate('commonRemoveFromFavorites') };
 		} else {
-			fav = { id: 'fav', name: 'Add to Favorites' };
+			fav = { id: 'fav', name: translate('commonAddToFavorites') };
 		};
 
 		if (object.isArchived) {
 			linkTo = null;
-			archive = { id: 'pageUnarchive', icon: 'restore', name: 'Restore from bin' };
+			archive = { id: 'pageUnarchive', icon: 'restore', name: translate('commonRestoreFromBin') };
 		} else {
-			archive = { id: 'pageArchive', icon: 'remove', name: 'Move to bin' };
+			archive = { id: 'pageArchive', icon: 'remove', name: translate('commonMoveToBin') };
 		};
 
 		if (block.isLocked()) {
-			pageLock = { id: 'pageUnlock', icon: 'pageUnlock', name: 'Unlock page', caption: `Ctrl + Shift + L` };
+			pageLock = { id: 'pageUnlock', icon: 'pageUnlock', name: translate('menuBlockMoreUnlockPage'), caption: `Ctrl + Shift + L` };
 		} else {
-			pageLock = { id: 'pageLock', icon: 'pageLock', name: 'Lock page', caption: `Ctrl + Shift + L` };
+			pageLock = { id: 'pageLock', icon: 'pageLock', name: translate('menuBlockMoreLockPage'), caption: `Ctrl + Shift + L` };
 		};
 
 		if (object.isInstalled) {
-			pageInstall = { id: 'pageUninstall', icon: 'remove', name: 'Delete' };
+			pageInstall = { id: 'pageUninstall', icon: 'remove', name: translate('commonDelete') };
 		} else {
-			pageInstall = { id: 'pageInstall', icon: 'install', name: 'Install' };
+			pageInstall = { id: 'pageInstall', icon: 'install', name: translate('menuBlockMoreInstall') };
 		};
 
 		// Restrictions
@@ -165,7 +168,7 @@ class MenuBlockMore extends React.Component<I.Menu> {
 		const allowedReload = object.source && block.isObjectBookmark();
 		const allowedInstall = !object.isInstalled && [ Constant.storeTypeId.type, Constant.storeTypeId.relation ].includes(object.type);
 		const allowedUninstall = object.isInstalled && [ Constant.typeId.type, Constant.typeId.relation ].includes(object.type) && blockStore.checkFlags(rootId, rootId, [ I.RestrictionObject.Delete ]);
-		const allowedTemplate = object.type != Constant.typeId.note;
+		const allowedTemplate = !UtilObject.getLayoutsWithoutTemplates().includes(object.layout) && blockStore.checkFlags(rootId, rootId, [ I.RestrictionObject.Template ]);
 		const hasShortMenu = block.isObjectType() || block.isObjectRelation() || block.isObjectFileKind() || block.isObjectSet() || block.isObjectCollection() || block.isObjectSpace();
 
 		if (!allowedArchive)	 archive = null;
@@ -177,7 +180,7 @@ class MenuBlockMore extends React.Component<I.Menu> {
 		if (!allowedHistory)	 history = null;
 		if (!allowedFav)		 fav = null;
 		if (!allowedInstall && !allowedUninstall)	 pageInstall = null;
-		if (!allowedTemplate)	 template = null;
+		if (!isTemplate && !allowedTemplate)	 template = null;
 		if (allowedUninstall)	 archive = null;
 
 		let sections = [];
@@ -200,9 +203,18 @@ class MenuBlockMore extends React.Component<I.Menu> {
 				{ children: [ search ] },
 				{ children: [ print, pageExport, pageReload ] },
 			];
+
+			if (isTemplate) {
+				sections = [
+					{ children: [ archive, history ] },
+					{ children: [ template, pageCopy, setDefaultTemplate ] },
+					{ children: [ search ] },
+					{ children: [ print, pageExport ] },
+				];
+			};
 			sections = sections.map((it: any, i: number) => ({ ...it, id: 'page' + i }));
-		} else {
-			const align = { id: 'align', name: 'Align', icon: [ 'align', UtilData.alignIcon(block.hAlign) ].join(' '), arrow: true };
+		}  else {
+			const align = { id: 'align', name: translate('commonAlign'), icon: [ 'align', UtilData.alignIcon(block.hAlign) ].join(' '), arrow: true };
 
 			sections.push({ children: [
 				turn,
@@ -408,7 +420,9 @@ class MenuBlockMore extends React.Component<I.Menu> {
 			case 'pageCopy': {
 				C.ObjectListDuplicate([ rootId ], (message: any) => {
 					if (!message.error.code && message.ids.length) {
-						UtilObject.openPopup({ id: message.ids[0], layout: object.layout });
+						UtilObject.openPopup({ id: message.ids[0], layout: object.layout }, {
+							onClose: () => $(window).trigger(`updatePreviewObject.${message.ids[0]}`)
+						});
 
 						analytics.event('DuplicateObject', { count: 1, route });
 					};
@@ -451,8 +465,8 @@ class MenuBlockMore extends React.Component<I.Menu> {
 			};
 
 			case 'pageCreate': {
-				UtilObject.create('', '', {}, I.BlockPosition.Bottom, rootId, {}, [], (message: any) => {
-					UtilObject.openRoute({ id: message.targetId });
+				UtilObject.create('', '', { type: object.targetObjectType }, I.BlockPosition.Bottom, rootId, {}, [], (message: any) => {
+					UtilObject.openAuto({ id: message.targetId, layout: object.layout });
 
 					analytics.event('CreateObject', {
 						route,
@@ -518,6 +532,11 @@ class MenuBlockMore extends React.Component<I.Menu> {
 
 					analytics.event('CreateTemplate', { objectType: object.type, route });
 				});
+				break;
+			};
+
+			case 'setDefault': {
+				UtilObject.setDefaultTemplateId(object.targetObjectType, rootId);
 				break;
 			};
 		};

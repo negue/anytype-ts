@@ -4,7 +4,7 @@ import raf from 'raf';
 import arrayMove from 'array-move';
 import { observer } from 'mobx-react';
 import { set } from 'mobx';
-import { I, C, UtilCommon, UtilData, UtilObject, analytics, Dataview, keyboard, Onboarding, Relation, Renderer, focus } from 'Lib';
+import { I, C, UtilCommon, UtilData, UtilObject, analytics, Dataview, keyboard, Onboarding, Relation, Renderer, focus, translate } from 'Lib';
 import { blockStore, menuStore, dbStore, detailStore, popupStore, commonStore } from 'Store';
 import Constant from 'json/constant.json';
 
@@ -25,6 +25,8 @@ interface State {
 	loading: boolean;
 };
 
+const NEW_TEMPLATE_ID = 'newTemplate';
+
 const BlockDataview = observer(class BlockDataview extends React.Component<Props, State> {
 
 	state = {
@@ -36,12 +38,12 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 	refSelect = null;
 	refCells: Map<string, any> = new Map();
 
-	menuContext: any = null;
 	viewId = '';
 	creating = false;
 	frame = 0;
 	isMultiSelecting = false;
 	selected: string[] = [];
+	menuContext = null;
 
 	constructor (props: Props) {
 		super(props);
@@ -68,7 +70,9 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 		this.onEmpty = this.onEmpty.bind(this);
 		this.onDragRecordStart = this.onDragRecordStart.bind(this);
 		this.onRecordDrop = this.onRecordDrop.bind(this);
+		this.onTemplatesMenu = this.onTemplatesMenu.bind(this);
 		this.isAllowedObject = this.isAllowedObject.bind(this);
+		this.isAllowedTemplate = this.isAllowedTemplate.bind(this);
 		this.isCollection = this.isCollection.bind(this);
 		this.objectOrderUpdate = this.objectOrderUpdate.bind(this);
 		this.applyObjectOrder = this.applyObjectOrder.bind(this);
@@ -96,7 +100,7 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 		const isCollection = this.isCollection();
 		const cn = [ 'focusable', 'c' + block.id ];
 
-		let { groupRelationKey, pageLimit } = view;
+		let { groupRelationKey, pageLimit, defaultTemplateId } = view;
 		let ViewComponent: any = null;
 		let className = [ UtilCommon.toCamelCase('view-' + I.ViewType[view.type]) ];
 		let head = null;
@@ -142,7 +146,9 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 			getVisibleRelations: this.getVisibleRelations,
 			getEmpty: this.getEmpty,
 			onRecordAdd: this.onRecordAdd,
+			onTemplatesMenu: this.onTemplatesMenu,
 			isAllowedObject: this.isAllowedObject,
+			isAllowedTemplate: this.isAllowedTemplate,
 			onSourceSelect: this.onSourceSelect,
 			onSourceTypeSelect: this.onSourceTypeSelect,
 		};
@@ -318,7 +324,7 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 		this.viewId = viewId;
 
 		const { rootId, block } = this.props;
-		const subId = dbStore.getSubId(rootId, block.id);
+		const subId = this.getSubId();
 		const keys = this.getKeys(viewId);
 		const sources = this.getSources();
 		const isCollection = this.isCollection();
@@ -412,19 +418,23 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 		return limit;
 	};
 
-	getRecords (): string[] {
+	getSubId (groupId?: string): string {
 		const { rootId, block } = this.props;
-		const subId = dbStore.getSubId(rootId, block.id);
+
+		return groupId ? dbStore.getGroupSubId(rootId, block.id, groupId) : dbStore.getSubId(rootId, block.id);
+	};
+
+	getRecords (groupId?: string): string[] {
+		const subId = this.getSubId(groupId);
 		const records = dbStore.getRecords(subId, '');
 
 		return this.applyObjectOrder('', UtilCommon.objectCopy(records));
 	};
 
 	getRecord (recordId: string) {
-		const { rootId, block } = this.props;
 		const view = this.getView();
 		const keys = this.getKeys(view.id);
-		const subId = dbStore.getSubId(rootId, block.id);
+		const subId = this.getSubId();
 		const item = detailStore.get(subId, recordId, keys);
 
 		if (!item) {
@@ -470,87 +480,64 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 		return detailStore.get(rootId, isInline ? targetObjectId : rootId, [ 'setOf' ]);
 	};
 
-	onEmpty (e: any) {
-		const { isInline } = this.props;
+	getTypeId (): string {
+		const { rootId } = this.props;
+		const objectId = this.getObjectId();
+		const types = Relation.getSetOfObjects(rootId, objectId, Constant.typeId.type);
+		const relations = Relation.getSetOfObjects(rootId, objectId, Constant.typeId.relation);
 
-		if (isInline) {
-			this.onSourceSelect(e.currentTarget, { horizontal: I.MenuDirection.Center });
-		} else {
-			this.onSourceTypeSelect(e.currentTarget);
+		let type = '';
+
+		if (types.length) {
+			type = types[0].id;
 		};
+		if (relations.length) {
+			relations.forEach((it: any) => {
+				if (it.objectTypes.length && !type) {
+					const first = it.objectTypes[0];
+
+					if (!UtilObject.isFileType(first) && !UtilObject.isSystemType(first)) {
+						type = first;
+					};
+				};
+			});
+		};
+		if (!type) {
+			type = commonStore.type;
+		};
+
+		return type;
 	};
 
-	onRecordAdd (e: any, dir: number, withPopup?: boolean) {
-		if (e.persist) {
-			e.persist();
-		};
-
-		if (this.creating) {
-			return;
-		};
-
+	getDetails (groupId?: string): any {
 		const { rootId, block } = this.props;
 		const objectId = this.getObjectId();
-		const object = detailStore.get(rootId, objectId, [ 'setOf' ], true);
-		const setOf = object.setOf || [];
+		const relations = Relation.getSetOfObjects(rootId, objectId, Constant.typeId.relation);
 		const view = this.getView();
-		const subId = dbStore.getSubId(rootId, block.id);
-		const isCollection = this.isCollection();
 		const conditions = [
 			I.FilterCondition.Equal,
 			I.FilterCondition.GreaterOrEqual,
 			I.FilterCondition.LessOrEqual,
 			I.FilterCondition.In,
 			I.FilterCondition.AllIn,
-		]; 
-
-		const types = Relation.getSetOfObjects(rootId, objectId, Constant.typeId.type);
-		const relations = Relation.getSetOfObjects(rootId, objectId, Constant.typeId.relation);
-		const details: any = {};
-		const flags: I.ObjectFlag[] = [];
-		const node = $(this.node);
-		const hoverArea = node.find('.hoverArea');
-
-		if (!types.length || isCollection) {
-			flags.push(I.ObjectFlag.SelectType);
+		];
+		const details: any = {
+			type: this.getTypeId(),
 		};
 
-		const menuParam: any = {
-			onClose: () => {
-				this.creating = false;
-				hoverArea.removeClass('active');
-			},
-		};
+		let group = null;
 
-		if (dir) {
-			menuParam.element = $(e.currentTarget);
-		} else {
-			menuParam.horizontal = I.MenuDirection.Center;
-			menuParam.recalcRect = () => {
-				const { ww, wh } = UtilCommon.getWindowDimensions();
-				return { x: ww / 2, y: wh / 2, width: 200, height: 0 };
+		if (groupId) {
+			group = dbStore.getGroup(rootId, block.id, groupId);
+			if (group) {
+				details[view.groupRelationKey] = group.value;
 			};
 		};
 
-		// Type detection and relations population
-		if (types.length) {
-			details.type = types[0].id;
-		};
 		if (relations.length) {
 			relations.forEach((it: any) => {
-				if (it.objectTypes.length && !details.type) {
-					const first = it.objectTypes[0];
-
-					if (!UtilObject.isFileType(first) && !UtilObject.isSystemType(first)) {
-						details.type = first;
-					};
-				};
-
 				details[it.relationKey] = Relation.formatValue(it, null, true);
 			});
-		};
-		if (!details.type) {
-			details.type = commonStore.type;
 		};
 
 		for (let filter of view.filters) {
@@ -569,51 +556,151 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 			};
 		};
 
-		this.creating = true;
+		return details;
+	};
 
-		const create = (template: any) => {
-			C.ObjectCreate(details, flags, template?.id, (message: any) => {
+	getMenuParam (e: any, dir: number): any {
+		const node = $(this.node);
+		const hoverArea = node.find('.hoverArea');
+
+		const menuParam: any = {
+			onOpen: (context: any) => {
+				this.menuContext = context;
+				hoverArea.addClass('active');
+			},
+			onClose: () => {
 				this.creating = false;
-
-				if (message.error.code) {
-					return;
-				};
-
-				const object = message.details;
-				const records = this.getRecords();
-				const oldIndex = records.indexOf(message.objectId);
-				const newIndex = dir > 0 ? records.length : 0;
-
-				if (isCollection) {
-					C.ObjectCollectionAdd(objectId, [ object.id ]);
-				};
-
-				detailStore.update(subId, { id: object.id, details: object }, true);
-
-				if (oldIndex < 0) {
-					dbStore.recordAdd(subId, '', object.id, newIndex);
-				} else {
-					dbStore.recordsSet(subId, '', arrayMove(records, oldIndex, newIndex));
-				};
-
-				const id = Relation.cellId(this.getIdPrefix(), 'name', object.id);
-				const ref = this.refCells.get(id);
-
-				if (object.type == Constant.typeId.note) {
-					this.onCellClick(e, 'name', object.id);
-				} else
-				if (ref) {
-					window.setTimeout(() => { ref.onClick(e); }, 15);
-				};
-
-				analytics.event('CreateObject', {
-					route: (isCollection ? 'Collection' : 'Set'),
-					objectType: object.type,
-					layout: object.layout,
-					template: template ? (template.templateIsBundled ? template.id : 'custom') : '',
-				});
-			});
+				hoverArea.removeClass('active');
+			},
 		};
+
+		if (dir) {
+			menuParam.element = $(e.currentTarget);
+		} else {
+			menuParam.horizontal = I.MenuDirection.Center;
+			menuParam.recalcRect = () => {
+				const { ww, wh } = UtilCommon.getWindowDimensions();
+				return { x: ww / 2, y: wh / 2, width: 200, height: 0 };
+			};
+		};
+
+		return menuParam;
+	};
+
+	getDefaultTemplateId (): string {
+		const view = this.getView();
+		const type = dbStore.getType(this.getTypeId());
+
+		if (view && view.defaultTemplateId) {
+			return view.defaultTemplateId;
+		};
+		if (type && type.defaultTemplateId) {
+			return type.defaultTemplateId;
+		};
+		return Constant.templateId.blank;
+	};
+
+	setDefaultTemplateForView (id: string, cb?: () => void) {
+		const { rootId, block } = this.props;
+		const view = this.getView();
+
+		C.BlockDataviewViewUpdate(rootId, block.id, view.id, { ...view, defaultTemplateId: id }, () => {
+			if (cb) {
+				cb();
+			};
+		});
+	};
+
+	recordCreate (e: any, template: any, dir: number, groupId?: string) {
+		const { rootId } = this.props;
+		const objectId = this.getObjectId();
+		const subId = this.getSubId(groupId);
+		const isCollection = this.isCollection();
+		const view = this.getView();
+
+		const types = Relation.getSetOfObjects(rootId, objectId, Constant.typeId.type);
+		const details = this.getDetails(groupId);
+		const flags: I.ObjectFlag[] = [];
+
+		if (!types.length || isCollection) {
+			flags.push(I.ObjectFlag.SelectType);
+		};
+
+		C.ObjectCreate(details, flags, template?.id, (message: any) => {
+			this.creating = false;
+
+			if (message.error.code) {
+				return;
+			};
+
+			let records = this.getRecords(groupId);
+
+			const object = message.details;
+			const oldIndex = records.indexOf(message.objectId);
+
+			if (isCollection) {
+				C.ObjectCollectionAdd(objectId, [ object.id ]);
+			};
+
+			detailStore.update(subId, { id: object.id, details: object }, true);
+
+			if (oldIndex < 0) {
+				dir > 0 ? records.push(message.objectId) : records.unshift(message.objectId);
+			} else {
+				records = arrayMove(records, oldIndex, dir > 0 ? records.length : 0);
+			};
+
+			if (groupId) {
+				this.objectOrderUpdate([ { viewId: view.id, groupId, objectIds: records } ], records, () => {
+					dbStore.recordsSet(subId, '', records);
+				});
+			} else {
+				dbStore.recordsSet(subId, '', records);
+			};
+
+			const id = Relation.cellId(this.getIdPrefix(), 'name', object.id);
+			const ref = this.refCells.get(id);
+
+			if (object.type == Constant.typeId.note) {
+				this.onCellClick(e, 'name', object.id);
+			} else
+			if (ref) {
+				window.setTimeout(() => { ref.onClick(e); }, 15);
+			};
+
+			analytics.event('CreateObject', {
+				route: (isCollection ? 'Collection' : 'Set'),
+				objectType: object.type,
+				layout: object.layout,
+				template: template ? (template.templateIsBundled ? template.id : 'custom') : '',
+			});
+		});
+	};
+
+	onEmpty (e: any) {
+		const { isInline } = this.props;
+
+		if (isInline) {
+			this.onSourceSelect(e.currentTarget, { horizontal: I.MenuDirection.Center });
+		} else {
+			this.onSourceTypeSelect(e.currentTarget);
+		};
+	};
+
+	onRecordAdd (e: any, dir: number, groupId?: string) {
+		if (e.persist) {
+			e.persist();
+		};
+
+		if (this.creating) {
+			return;
+		};
+
+		const defaultTemplateId = this.getDefaultTemplateId();
+		const details = this.getDetails(groupId);
+		const menuParam: any = this.getMenuParam(e, dir);
+
+		this.creating = true;
 
 		if (details.type == Constant.typeId.bookmark) {
 			menuStore.open('dataviewCreateBookmark', {
@@ -628,53 +715,126 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 			return;
 		};
 
-		const showPopup = () => {
-			popupStore.open('template', { data: { typeId: details.type, onSelect: create } });
-		};
+		this.recordCreate(e, UtilData.checkBlankTemplate({ id: defaultTemplateId }), dir, groupId);
+	};
 
-		const showMenu = () => {
-			hoverArea.addClass('active');
+	onTemplatesMenu (e: any, dir: number) {
+		const menuParam = this.getMenuParam(e, dir);
+		const typeId = this.getTypeId();
+		const defaultTemplateId = this.getDefaultTemplateId();
 
-			menuStore.open('searchObject', {
-				...menuParam,
-				className: 'single',
-				subIds: [ 'previewObject' ],
-				vertical: dir > 0 ? I.MenuDirection.Top : I.MenuDirection.Bottom,
-				horizontal: dir > 0 ? I.MenuDirection.Left : I.MenuDirection.Right,
-				data: {
-					label: 'Choose a template',
-					noFilter: true,
-					noIcon: true,
-					filters: [
-						{ operator: I.FilterOperator.And, relationKey: 'type', condition: I.FilterCondition.Equal, value: Constant.typeId.template },
-						{ operator: I.FilterOperator.And, relationKey: 'targetObjectType', condition: I.FilterCondition.In, value: setOf },
-					],
-					sorts: [
-						{ relationKey: 'name', type: I.SortType.Asc },
-					],
-					onOver: (e: any, context: any, item: any) => {
-						menuStore.open('previewObject', {
-							element: `#${context.props.getId()} #item-${item.id}`,
-							offsetX: context.props.getSize().width,
-							isSub: true,
-							vertical: I.MenuDirection.Center,
-							data: { rootId: item.id }
-						});
-					},
-					onSelect: (item: any) => {
-						create(item);
-						window.setTimeout(() => { menuStore.close('previewObject'); }, Constant.delay.menu);
-					}
+		menuStore.open('searchObject', {
+			...menuParam,
+			offsetY: 10,
+			subIds: Constant.menuIds.dataviewTemplate.concat([ 'dataviewTemplate' ]),
+			vertical: dir > 0 ? I.MenuDirection.Top : I.MenuDirection.Bottom,
+			horizontal: dir > 0 ? I.MenuDirection.Left : I.MenuDirection.Right,
+			data: {
+				label: translate('blockDataviewSelectTemplate'),
+				noFilter: true,
+				noIcon: true,
+				mapElement: it => ({
+					...it,
+					typeId,
+					withMore: (it.id != NEW_TEMPLATE_ID),
+					caption: (it.id == defaultTemplateId) ? translate('commonDefault') : '',
+					isDefault: (it.id == defaultTemplateId),
+					isBlank: (it.id == Constant.templateId.blank),
+				}),
+				dataChange: (items: any[]) => {
+					const fixed: any[] = [ { id: Constant.templateId.blank, name: translate('commonBlank') } ];
+					const bottom: any[] = [
+						{ isDiv: true },
+						{ id: NEW_TEMPLATE_ID, name: translate('blockDataviewNewTemplate'), icon: 'plus' }
+					];
+
+					return !items.length ? fixed.concat(bottom) : fixed.concat(items).concat(bottom);
+				},
+				filters: [
+					{ operator: I.FilterOperator.And, relationKey: 'type', condition: I.FilterCondition.Equal, value: Constant.typeId.template },
+					{ operator: I.FilterOperator.And, relationKey: 'targetObjectType', condition: I.FilterCondition.In, value: this.getTypeId() },
+				],
+				sorts: [
+					{ relationKey: 'name', type: I.SortType.Asc },
+				],
+				onOver: (e: any, context: any, item: any) => {
+					if (item.isBlank || (item.id == NEW_TEMPLATE_ID)) {
+						menuStore.closeAll(Constant.menuIds.dataviewTemplate);
+						return;
+					};
+
+					menuStore.open('previewObject', {
+						element: `#${this.menuContext.getId()} #item-${item.id}`,
+						offsetX: this.menuContext.getSize().width,
+						isSub: true,
+						vertical: I.MenuDirection.Center,
+						data: { rootId: item.id }
+					});
+				},
+				onSelect: (item: any) => {
+					if (item.id == NEW_TEMPLATE_ID) {
+						this.onTemplateAdd();
+						return;
+					};
+
+					this.recordCreate(e, UtilData.checkBlankTemplate(item), dir);
+					menuStore.closeAll(Constant.menuIds.dataviewTemplate.concat([ 'dataviewTemplate' ]));
+				},
+				onMore: (e: any, item: any) => {
+					e.preventDefault();
+					e.stopPropagation();
+
+					if (menuStore.isOpen('dataviewTemplate', item.id)) {
+						menuStore.close('dataviewTemplate');
+						return;
+					};
+
+					menuStore.closeAll(Constant.menuIds.dataviewTemplate);
+					menuStore.open('dataviewTemplate', {
+						menuKey: item.id,
+						element: `#${this.menuContext.getId()} #item-${item.id}`,
+						vertical: I.MenuDirection.Bottom,
+						horizontal: I.MenuDirection.Right,
+						data: {
+							template: item,
+							isView: true,
+							onOver: () => menuStore.closeAll([ 'previewObject' ]),
+							onSetDefault: () => {
+								this.setDefaultTemplateForView(item.id, () => { this.menuContext.ref.reload(); });
+							},
+							onDuplicate: (object) => UtilObject.openPopup(object, {}),
+							onDelete: () => {
+								if (item.isDefault) {
+									this.setDefaultTemplateForView(Constant.templateId.blank);
+								};
+
+								this.menuContext.ref.reload();
+							}
+						}
+					});
 				}
-			});
+			}
+		});
+	};
+
+	onTemplateAdd () {
+		const typeId = this.getTypeId();
+		const type = dbStore.getType(typeId);
+		const details: any = {
+			type: Constant.typeId.template,
+			targetObjectType: typeId,
+			layout: type.recommendedLayout,
 		};
 
-		UtilData.checkTemplateCnt(setOf, (message: any) => {
-			if (message.records.length > 1) {
-				withPopup ? showPopup() : showMenu();
-			} else {
-				create(message.records.length ? message.records[0] : '');
+		C.ObjectCreate(details, [], '', (message) => {
+			if (message.error.code) {
+				return;
 			};
+
+			focus.clear(true);
+			analytics.event('CreateTemplate', { objectType: typeId, route: 'Dataview' });
+
+			UtilObject.openPopup(message.details);
 		});
 	};
 
@@ -717,8 +877,7 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 	};
 
 	onCellChange (id: string, relationKey: string, value: any, callBack?: (message: any) => void) {
-		const { rootId, block } = this.props;
-		const subId = dbStore.getSubId(rootId, block.id);
+		const subId = this.getSubId();
 		const relation = dbStore.getRelationByKey(relationKey);
 
 		if (!relation) {
@@ -741,9 +900,9 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 		e.preventDefault();
 		e.stopPropagation();
 
-		const { rootId, block, dataset } = this.props;
+		const { dataset } = this.props;
 		const { selection } = dataset || {};
-		const subId = dbStore.getSubId(rootId, block.id);
+		const subId = this.getSubId();
 		const isCollection = this.isCollection();
 		
 		let ids = selection.get(I.SelectType.Record);
@@ -775,7 +934,7 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 		let addParam: any = {};
 
 		if (isCollection) {
-			addParam.name = 'Create new collection';
+			addParam.name = translate('blockDataviewCreateNewCollection');
 			addParam.onClick = () => {
 				C.ObjectCreate({ layout: I.ObjectLayout.Collection, type: Constant.typeId.collection }, [], '', (message: any) => { 
 					onSelect(message.details, true); 
@@ -786,7 +945,7 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 				{ operator: I.FilterOperator.And, relationKey: 'type', condition: I.FilterCondition.Equal, value: Constant.typeId.collection },
 			]);
 		} else {
-			addParam.name = 'Create new set';
+			addParam.name = translate('blockDataviewCreateNewSet');
 			addParam.onClick = () => {
 				C.ObjectCreateSet([], {}, '', (message: any) => { onSelect(message.details, true); });
 			};
@@ -893,9 +1052,9 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 	};
 
 	onRecordDrop (targetId: string, ids: string[]) {
-		const { rootId, block, dataset } = this.props;
+		const { dataset } = this.props;
 		const { selection } = dataset || {};
-		const subId = dbStore.getSubId(rootId, block.id);
+		const subId = this.getSubId();
 		const view = this.getView();
 
 		if (!ids.length) {
@@ -929,7 +1088,7 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 	getVisibleRelations () {
 		const { rootId, block } = this.props;
 		const view = this.getView();
-		const keys = dbStore.getObjectRelationsKeys(rootId, block.id);
+		const keys = dbStore.getObjectRelationKeys(rootId, block.id);
 
 		return view.getVisibleRelations().filter(it => keys.includes(it.relationKey));
 	};
@@ -947,11 +1106,11 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 
 		switch (type) {
 			case 'target': {
-				const name = isCollection ? 'collections' : 'sets';
+				const name = translate(isCollection ? 'blockDataviewEmptyTargetCollections' : 'blockDataviewEmptyTargetSets');
 				emptyProps = {
-					title: 'No data source',
-					description: UtilCommon.sprintf('Connect one of your %s or create a new<br/>one to continue', name),
-					button: 'Select source',
+					title: translate('blockDataviewEmptyTargetTitle'),
+					description: UtilCommon.sprintf(translate('blockDataviewEmptyTargetDescription'), name),
+					button: translate('blockDataviewEmptyTargetButton'),
 					onClick: () => this.onSourceSelect(`#block-${block.id} .dataviewEmpty .button`, {}),
 				};
 				break;
@@ -959,9 +1118,9 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 
 			case 'source': {
 				emptyProps = {
-					title: 'No query selected',
-					description: 'Add search query to aggregate objects with equal<br/>types and relations in a live mode',
-					button: 'Select query',
+					title: translate('blockDataviewEmptySourceTitle'),
+					description: translate('blockDataviewEmptySourceDescription'),
+					button: translate('blockDataviewEmptySourceButton'),
 					onClick: this.onEmpty,
 				};
 				break;
@@ -970,11 +1129,11 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 			case 'view': {
 				cn.push('withHead');
 
-				emptyProps.title = 'No objects';
+				emptyProps.title = translate('commonNoObjects');
 
 				if (this.isAllowedObject()) {
-					emptyProps.description = 'Create your first one to begin';
-					emptyProps.button = 'Create object';
+					emptyProps.description = translate('blockDataviewEmptyViewDescription');
+					emptyProps.button = translate('blockDataviewEmptyViewButton');
 					emptyProps.onClick = e => this.onRecordAdd(e, 1);
 				};
 				break;
@@ -1005,6 +1164,14 @@ const BlockDataview = observer(class BlockDataview extends React.Component<Props
 			};
 		};
 		return allowed;
+	};
+
+	isAllowedTemplate () {
+		const typeId = this.getTypeId();
+		const type = dbStore.getType(typeId);
+		const restrictions = UtilObject.getLayoutsWithoutTemplates();
+
+		return !restrictions.includes(type.recommendedLayout);
 	};
 
 	isCollection (): boolean {
